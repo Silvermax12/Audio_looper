@@ -98,9 +98,13 @@ def detect_seamless_loops(
     if n_beats < 4:
         return [], duration, tempo
 
-    # Chroma features aggregated to beats
-    chroma = librosa.feature.chroma_cqt(y=y, sr=sr, hop_length=hop_length)
+    # Chroma features aggregated to beats.
+    # chroma_stft is used instead of chroma_cqt: both produce 12-bin chroma
+    # but stft-based avoids the large CQT filterbank, saving ~60% RAM.
+    chroma = librosa.feature.chroma_stft(y=y, sr=sr, hop_length=hop_length)
     beat_chroma = librosa.util.sync(chroma, beat_frames, aggregate=np.median)
+    # Free the full-resolution chroma — we only need the beat-synced version.
+    del chroma
     beat_rec_matrix = compute_recurrence_matrix(beat_chroma)
 
     # Beat constraints

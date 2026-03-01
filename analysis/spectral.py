@@ -1,21 +1,11 @@
 """
 Spectral analysis utilities for audio loop detection.
-Handles spectral flux, RMS energy, boundary similarity, seamlessness scoring,
+Handles RMS energy, boundary similarity, seamlessness scoring,
 quality grading, and recurrence matrix computation.
 """
 
 import numpy as np
 import librosa
-
-
-def compute_spectral_flux(y: np.ndarray, sr: int, hop_length: int = 512) -> np.ndarray:
-    """Compute spectral flux — measures rate of spectral change."""
-    S = np.abs(librosa.stft(y, hop_length=hop_length))
-    diff = np.diff(S, axis=1)
-    diff = np.maximum(0, diff)
-    flux = np.sum(diff, axis=0)
-    flux = np.concatenate([[0], flux])
-    return flux
 
 
 def compute_rms_energy(y: np.ndarray, sr: int, hop_length: int = 512) -> np.ndarray:
@@ -134,11 +124,17 @@ def get_quality_grade(seamlessness: float) -> str:
 
 
 def compute_recurrence_matrix(chroma: np.ndarray) -> np.ndarray:
-    """Compute Recurrence Matrix using chroma features with affinity mode."""
+    """Compute Recurrence Matrix using chroma features with affinity mode.
+
+    Uses sparse=True to avoid allocating a full N×N float64 dense array
+    (which can reach 100+ MB for long tracks).  We convert to dense only
+    at the end so callers can index into it normally.
+    """
     rec_matrix = librosa.segment.recurrence_matrix(
         chroma,
         mode='affinity',
         metric='cosine',
-        sparse=False
+        sparse=True,
     )
-    return rec_matrix
+    # Convert from scipy sparse to a regular NumPy array for easy indexing.
+    return rec_matrix.toarray()
